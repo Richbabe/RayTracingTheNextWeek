@@ -143,7 +143,7 @@ class Isotropic : public Material
         virtual bool Scatter(
             const Ray& InRay, const HitRecord& Record, Color& Attenuation, Ray& Scattered
         ) const override {
-            Scattered = Ray(InRay.GetOrigin(), RandomInUnitSphere(), InRay.GetTime());
+            Scattered = Ray(Record.p, RandomInUnitSphere(), InRay.GetTime());
             Attenuation = Albedo->Value(Record.u, Record.v, Record.p);
             return true;
         }

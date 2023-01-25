@@ -10,6 +10,8 @@
 #include "Box.h"
 #include "ConstantMedium.h"
 #include "BVH.h"
+#include "ParallelFor.h"
+#include <chrono>
 
 Color RayColor(const Ray& InRay, const Color& Background, const HittableList& World, int Depth) 
 {
@@ -290,7 +292,7 @@ int main()
     Point3 LookFrom;
     Point3 LookAt;
     auto FOV = 40.0f;
-    auto Aperture = 0.1f;
+    auto Aperture = 0.0f;
     Color Background(0.f, 0.f, 0.f);
 
     switch(0)
@@ -378,6 +380,59 @@ int main()
 
     std::cout << "P3\n" << ImageWidth << ' ' << ImageHeight << "\n255\n";
 
+    auto StartTime = std::chrono::system_clock::now();
+
+#define MT 1
+#if MT
+    Color** PixelData = new Color*[ImageHeight];
+    for(int i = 0; i < ImageHeight; i++)
+    {
+        PixelData[i] = new Color[ImageWidth];
+    }
+
+    const int PixelNums = ImageHeight * ImageWidth;
+    std::atomic<int> FinishedPixelNums = 0;
+    
+    auto CalculatePixelJob = [PixelData, SamplesPerPixel, PixelNums, ImageWidth, ImageHeight, &Cam, &Background, &World, &FinishedPixelNums](int Start, int End)
+    {
+        for(int Index = Start; Index < End; Index++)
+        {
+            int i = Index % ImageWidth;
+            int j = Index / ImageWidth;
+
+            Color PixelColor(0.0f, 0.0f, 0.0f);
+            // Do antialiasing by random super sampling
+            for (int s = 0; s < SamplesPerPixel; ++s) 
+            {
+                auto u = (i + RandomFloat()) / (ImageWidth - 1);
+                auto v = (j + RandomFloat()) / (ImageHeight - 1);
+                Ray r = Cam.GetRay(u, v);
+                PixelColor += RayColor(r, Background, World, MaxDepth);
+            }
+
+            PixelData[i][j] = PixelColor;
+
+            FinishedPixelNums++;
+            std::cerr << "\rProgress: " << (FinishedPixelNums * 1.0f / PixelNums) * 100.0f << ' ' << std::flush;
+        }
+    };
+
+    ParallelFor(PixelNums, CalculatePixelJob, true);
+
+    for (int j = ImageHeight - 1; j >= 0; --j) 
+    {
+        for (int i = 0; i < ImageWidth; ++i) 
+        {
+            WriteColor(std::cout, PixelData[i][j], SamplesPerPixel);
+        }
+    }
+
+    for(int i = 0;i < ImageHeight;i++)
+    {
+        delete []PixelData[i];
+    }
+    delete []PixelData;
+#else
     for (int j = ImageHeight - 1; j >= 0; --j) 
     {
         std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
@@ -395,6 +450,13 @@ int main()
             WriteColor(std::cout, PixelColor, SamplesPerPixel);
         }
     }
+#endif
+
+    auto EndTime = std::chrono::system_clock::now();
+    auto Duration = std::chrono::duration_cast<std::chrono::microseconds>(EndTime - StartTime);
 
     std::cerr << "\nDone.\n";
+    std::cerr << "Time Cost: "
+              << double(Duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den
+              << " s\n";
 }

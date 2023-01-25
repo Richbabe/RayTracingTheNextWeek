@@ -30,7 +30,7 @@ inline float DegreesToRadians(float Degrees)
 inline float RandomFloat() 
 {
     static std::uniform_real_distribution<float> Distribution(0.0f, 1.0f);
-    static std::mt19937 Generator;
+    static thread_local std::mt19937 Generator;
     return Distribution(Generator);
 }
 
@@ -38,7 +38,7 @@ inline float RandomFloat()
 inline double RandomDouble() 
 {
     static std::uniform_real_distribution<double> Distribution(0.0, 1.0);
-    static std::mt19937 Generator;
+    static thread_local std::mt19937 Generator;
     return Distribution(Generator);
 }
 
