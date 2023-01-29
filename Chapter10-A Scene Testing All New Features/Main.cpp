@@ -12,6 +12,7 @@
 #include "BVH.h"
 #include "ParallelFor.h"
 #include <chrono>
+#include <atomic>
 
 Color RayColor(const Ray& InRay, const Color& Background, const HittableList& World, int Depth) 
 {
@@ -391,7 +392,7 @@ int main()
     }
 
     const int PixelNums = ImageHeight * ImageWidth;
-    std::atomic<int> FinishedPixelNums = 0;
+    std::atomic<int> FinishedPixelNums(0);
     
     auto CalculatePixelJob = [PixelData, SamplesPerPixel, PixelNums, ImageWidth, ImageHeight, &Cam, &Background, &World, &FinishedPixelNums](int Start, int End)
     {
